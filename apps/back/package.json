@@ -1,0 +1,8 @@
+{
+    "name": "back",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": ".venv\\Scripts\\python.exe manage.py runserver 127.0.0.1:8000"
+    }
+}
