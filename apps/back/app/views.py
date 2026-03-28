@@ -4,8 +4,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from .createTemp import CreateTempSerializer, EbookSerializer
-from app.models import SystemUser
 from django.core.files.storage import default_storage
+
+from django.db.models import Count, ExpressionWrapper, F, IntegerField
+from .models import TransAccount, SystemUser
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -64,3 +66,102 @@ def login_user(request):
         return response
     except SystemUser.DoesNotExist:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+
+
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def topSellingBook(request):
+    data = (
+        TransAccount.objects
+        .filter(
+            paidtype='payebook',
+            ebook__isnull=False
+        )
+        .values(
+            ebookid=F('ebook__ebookid'),  
+            title=F('ebook__title'),
+            author=F('ebook__author__fullname'),
+        )
+        .annotate(total_sales=Count('id'))
+        .order_by('-total_sales')
+    )
+
+    return Response(list(data), status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def topBookByAuthor(request):
+    userid = request.COOKIES.get('userid')
+
+    if not userid:
+        return Response({'error': 'login please'}, status=401)
+
+    try:
+        user = SystemUser.objects.get(userid=userid)
+    except SystemUser.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+
+    if user.role != 'author':
+        return Response({'error': 'Author only'}, status=403)
+
+    data = (
+        TransAccount.objects
+        .filter(
+            paidtype='payebook',
+            ebook__isnull=False,
+            ebook__author=user
+        )
+        .values(
+            ebookid=F('ebook__ebookid'), 
+            title=F('ebook__title'),
+        )
+        .annotate(total_sales=Count('id'))
+        .order_by('-total_sales')
+    )
+
+    return Response(list(data), status=200)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def transactionList(request):
+    userid = request.COOKIES.get('userid')
+
+    if not userid:
+        return Response({'error': 'login please'}, status=401)
+
+    try:
+        user = SystemUser.objects.get(userid=userid)
+    except SystemUser.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+
+    if user.role != 'author':
+        return Response({'error': 'Author only'}, status=403)
+
+    data = (
+        TransAccount.objects
+        .filter(
+            paidtype='sellebook',
+            ebook__isnull=False,
+            owner=user
+        )
+        .annotate(
+            earnings=ExpressionWrapper(
+                F('gettoken') * 50,
+                output_field=IntegerField()
+            )
+        )
+        .values(
+            transaction_id=F('id'),
+            ebook_title=F('ebook__title'),
+            tokens_earned=F('gettoken'),
+            earnings=F('earnings'),
+        )
+        .order_by('-id')
+    )
+
+    return Response(list(data), status=200)
