@@ -14,12 +14,12 @@ export default function CreateUser() {
 
     const [bookTitle, setBookTitle] = useState("");
     const [bookAuthorId, setBookAuthorId] = useState("");
+    const [bookToken, setBookToken] = useState("10");
 
     const [singleFile, setSingleFile] = useState<File | null>(null);
 
     const [authors, setAuthors] = useState<User[]>([]);
 
-    // Custom Alert Configuration (Mimicking SweetAlert2)
     const [alertConfig, setAlertConfig] = useState<any>({ show: false });
 
     const fireAlert = (config: any) => {
@@ -111,7 +111,7 @@ export default function CreateUser() {
         formData.append("author", bookAuthorId);
         formData.append("category", "computer");
         formData.append("ebook_description", `Mock book: ${bookTitle} for testing`);
-        formData.append("ebooktoken", "10");
+        formData.append("ebooktoken", bookToken);
         formData.append("publishdate", new Date().toISOString().substring(0, 10));
         formData.append("page", "100");
         formData.append("poststatus", "Publish");
@@ -129,6 +129,7 @@ export default function CreateUser() {
             });
             if (res.ok) {
                 setBookTitle("");
+                setBookToken("10");
                 setSingleFile(null);
                 (e.target as HTMLFormElement).reset();
                 await fireAlert({
@@ -160,7 +161,6 @@ export default function CreateUser() {
     return (
         <div className="min-h-screen bg-gray-100 p-8 relative">
 
-            {/* Custom Alert Modal mimicking SweetAlert2 */}
             {alertConfig.show && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-opacity">
                     <div className="bg-white rounded-lg shadow-2xl p-8 max-w-sm w-full text-center transform transition-all">
@@ -253,6 +253,14 @@ export default function CreateUser() {
                                 placeholder="Enter eBook Title"
                                 value={bookTitle}
                                 onChange={(e) => setBookTitle(e.target.value)} />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Token Price</label>
+                            <input type="number" required min="1" className="w-full border p-2 rounded mt-1 bg-gray-50"
+                                placeholder="Enter Token Amount"
+                                value={bookToken}
+                                onChange={(e) => setBookToken(e.target.value)} />
                         </div>
 
                         <div>

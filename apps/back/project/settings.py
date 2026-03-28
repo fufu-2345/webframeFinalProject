@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 
+import os
 import app
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -29,6 +30,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+MEDIA_URL = '/'
+MEDIA_ROOT = os.path.join(BASE_DIR, '')
 
 # Application definition
 

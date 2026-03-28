@@ -4,7 +4,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from .createTemp import CreateTempSerializer, EbookSerializer
-from app.models import SystemUser
+from app.models import SystemUser, eBook
 from django.core.files.storage import default_storage
 
 @api_view(['POST'])
@@ -64,3 +64,10 @@ def login_user(request):
         return response
     except SystemUser.DoesNotExist:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def list_ebooks(request):
+    ebooks = eBook.objects.all()
+    serializer = EbookSerializer(ebooks, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
