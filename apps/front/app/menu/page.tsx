@@ -10,24 +10,35 @@ interface Ebook {
     author: number;
 }
 
+interface AlertConfig {
+    show: boolean;
+    icon?: 'warning' | 'success' | 'error';
+    title?: string;
+    text?: string;
+    showCancelButton?: boolean;
+    showConfirmButton?: boolean;
+    confirmButtonText?: string;
+    cancelButtonText?: string;
+    timer?: number;
+    resolve?: (value: boolean) => void;
+}
+
 export default function EbookList() {
     const [ebooks, setEbooks] = useState<Ebook[]>([]);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [userTokens, setUserTokens] = useState<number>(0);
+    const [userId, setUserId] = useState<string | null>(null);
+    const TOKEN_RATE = 50;
 
-    // จำลองข้อมูลผู้ใช้ (ล็อกอินแล้ว) และยอดเงินคงเหลือ
-    const [isLoggedIn, setIsLoggedIn] = useState(true);
-    const [userTokens, setUserTokens] = useState<number>(500); // สมมติว่ามี 500 โทเคน
-    const TOKEN_RATE = 50; // 1 โทเคน = 50 บาท
+    const [alertConfig, setAlertConfig] = useState<AlertConfig>({ show: false });
 
-    // อัปเกรด Alert Config ให้รองรับการ Confirm/Cancel
-    const [alertConfig, setAlertConfig] = useState<any>({ show: false });
-
-    const fireAlert = (config: any) => {
+    const fireAlert = (config: Omit<AlertConfig, 'show' | 'resolve'>) => {
         return new Promise<boolean>((resolve) => {
             setAlertConfig({ ...config, show: true, resolve });
             if (config.timer) {
                 setTimeout(() => {
                     setAlertConfig({ show: false });
-                    resolve(true); // default ให้เป็น true ถ้าหมดเวลา
+                    resolve(true);
                 }, config.timer);
             }
         });
@@ -46,17 +57,44 @@ export default function EbookList() {
                 setEbooks(data);
             }
         } catch (error) {
-            console.error("Failed to fetch ebooks", error);
+            console.error(error);
         }
+    };
+
+    const fetchUserBalance = async (uid: string) => {
+        try {
+            const res = await fetch(`http://localhost:8000/app/users/${uid}/balance/`);
+            if (res.ok) {
+                const data = await res.json();
+                setUserTokens(data.token_balance);
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const getCookie = (name: string) => {
+        if (typeof document === 'undefined') return null;
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+        return null;
     };
 
     useEffect(() => {
         fetchEbooks();
+        const currentUserId = getCookie('userid') || localStorage.getItem('userid');
+        if (currentUserId) {
+            setIsLoggedIn(true);
+            setUserId(currentUserId);
+            fetchUserBalance(currentUserId);
+        } else {
+            setIsLoggedIn(false);
+        }
     }, []);
 
     const handleBuyClick = async (ebook: Ebook) => {
-        // 1. ตรวจสอบว่าล็อกอินหรือยัง
-        if (!isLoggedIn) {
+        if (!isLoggedIn || !userId) {
             await fireAlert({
                 icon: "error",
                 title: "เข้าสู่ระบบก่อน",
@@ -67,7 +105,6 @@ export default function EbookList() {
             return;
         }
 
-        // 2. ตรวจสอบยอดโทเคนว่าพอหรือไม่
         if (userTokens < ebook.ebooktoken) {
             await fireAlert({
                 icon: "error",
@@ -79,43 +116,70 @@ export default function EbookList() {
             return;
         }
 
-        // 3. เรียกใช้ Alert แบบมี Confirm / Cancel
         const isConfirmed = await fireAlert({
             icon: "warning",
             title: "ยืนยันการซื้อ",
-            text: `คุณต้องการซื้อหนังสือ "${ebook.title}" ในราคา ${ebook.ebooktoken} โทเคน ใช่หรือไม่? (ยอดคงเหลือของคุณจะถูกหักทันที)`,
+            text: `คุณต้องการซื้อหนังสือ "${ebook.title}" ในราคา ${ebook.ebooktoken} โทเคน ใช่หรือไม่?`,
             showCancelButton: true,
             confirmButtonText: "ใช่, ซื้อเลย",
             cancelButtonText: "ยกเลิก"
         });
 
         if (isConfirmed) {
-            // ตาม Requirement: การซื้อหนังสือไม่ต้องตรวจสอบ (Admin) หักบัญชีโทเคนได้เลย
-            // ในการใช้งานจริง: ตรงนี้จะเป็นการยิง API ไปบันทึก Payment และ TransAccount
-            // ตัวอย่าง: await fetch(`http://localhost:8000/app/payment/buy/`, { ... });
+            try {
+                const csrfToken = getCookie('csrftoken') || '';
 
-            // หักโทเคนทันที
-            setUserTokens(prev => prev - ebook.ebooktoken);
+                const res = await fetch("http://localhost:8000/app/payment/purchase/", {
+                    method: "POST",
+                    credentials: "include",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrfToken
+                    },
+                    body: JSON.stringify({
+                        ebook_id: ebook.ebookid
+                    })
+                });
 
-            await fireAlert({
-                icon: "success",
-                title: "สั่งซื้อสำเร็จ!",
-                text: `คุณได้ซื้อหนังสือ "${ebook.title}" เรียบร้อยแล้ว ยอดคงเหลือใหม่ของคุณคือ ${userTokens - ebook.ebooktoken} โทเคน`,
-                showCancelButton: false,
-                confirmButtonText: "ตกลง",
-                timer: 3000
-            });
+                if (res.ok) {
+                    setUserTokens(userTokens - ebook.ebooktoken);
+
+                    await fireAlert({
+                        icon: "success",
+                        title: "สั่งซื้อสำเร็จ!",
+                        text: `คุณได้ซื้อหนังสือ "${ebook.title}" เรียบร้อยแล้ว`,
+                        showCancelButton: false,
+                        confirmButtonText: "ตกลง",
+                        timer: 3000
+                    });
+                } else {
+                    const errorData = await res.json();
+                    await fireAlert({
+                        icon: "error",
+                        title: "ทำรายการไม่สำเร็จ",
+                        text: errorData.error || "เกิดข้อผิดพลาดในการสั่งซื้อ",
+                        showCancelButton: false,
+                        confirmButtonText: "ตกลง"
+                    });
+                }
+            } catch (error) {
+                console.error(error);
+                await fireAlert({
+                    icon: "error",
+                    title: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว",
+                    text: "ไม่สามารถดำเนินการได้ในขณะนี้",
+                    showCancelButton: false,
+                    confirmButtonText: "ตกลง"
+                });
+            }
         }
     };
 
     return (
         <div className="min-h-screen bg-gray-100 p-8 relative">
-
-            {/* Custom Alert Modal */}
             {alertConfig.show && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-opacity">
                     <div className="bg-white rounded-lg shadow-2xl p-8 max-w-sm w-full text-center transform transition-all">
-
                         {alertConfig.icon === 'warning' && (
                             <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-yellow-100 mb-6">
                                 <svg className="h-10 w-10 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -166,7 +230,6 @@ export default function EbookList() {
                 </div>
             )}
 
-            {/* Header แสดงยอด Token ของผู้ใช้ */}
             <div className="max-w-7xl mx-auto mb-8 flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800">คลังหนังสือ eBook</h1>
@@ -179,7 +242,6 @@ export default function EbookList() {
                             <span className="text-2xl font-black text-indigo-700">{userTokens}</span>
                             <span className="text-sm font-bold text-indigo-500">Tokens</span>
                         </div>
-                        {/* แสดงยอดเงินที่แปลงแล้วตาม Requirement */}
                         <p className="text-xs text-gray-500 mt-1">({(userTokens * TOKEN_RATE).toLocaleString()} บาท)</p>
                     </div>
                 )}
@@ -196,7 +258,6 @@ export default function EbookList() {
                             className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col cursor-pointer"
                         >
                             <div className="h-64 bg-gray-200 relative overflow-hidden group">
-                                {/* ถ้ารูปไม่มี จะแสดงสีเทา ถ้ามี จะโหลดจาก http://localhost:8000 */}
                                 {ebook.cover ? (
                                     <img
                                         src={`http://localhost:8000${ebook.cover}`}
