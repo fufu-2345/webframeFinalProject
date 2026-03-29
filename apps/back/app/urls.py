@@ -22,4 +22,9 @@ urlpatterns = [
     # Admin Approval (สำหรับฝั่ง Staff)
     path("admin/payments/pending/", views.list_pending_payments, name="admin_list_pending"),
     path("admin/payments/verify/", views.verify_payment, name="admin_verify_payment"),
+
+    path('history/',views.payment_history, name='payment_history'),
+    path('payments/search/', views.search_payment),
+    path('trans/search/', views.search_transaccount),
+    path('author/earnings/', views.get_author_earnings, name='get_author_earnings')
 ]

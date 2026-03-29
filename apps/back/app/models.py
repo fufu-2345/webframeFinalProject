@@ -173,10 +173,18 @@ class Payment(models.Model):
 
 class TransAccount(models.Model):
     PAID_TYPE_CHOICES = (
+        # ฝากแก้ที
+        # ของ 1 คนแก้ (เราใช้ตามไป)
         ("subscription", "สมัครนักเขียน"),
         ("topup", "เติม token"),
         ("buy", "ซื้อ ebook"),
         ("sell", "ขาย ebook"),
+        
+        # ของกลุ่ม 3 คนแก้ )
+        ('paysubscription', 'จ่ายค่าสมัคร'),
+        ('payebook', 'จ่ายโทเค็นซื้อหนังสือ'),
+        ('sellebook', 'รับโทเค็น (ขายหนังสือได้)'),
+        ('topup', 'เติมโทเค็น'),
     )
 
     owner = models.ForeignKey(SystemUser, on_delete=models.CASCADE)
@@ -186,7 +194,8 @@ class TransAccount(models.Model):
     tokenbalance = models.IntegerField(default=0)
     balance = models.IntegerField(default=0)
     ebook = models.ForeignKey(eBook, on_delete=models.SET_NULL, null=True, blank=True)
-
+    transdate = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
     def save(self, *args, **kwargs):
         # คำนวณยอดเงินบาท (Balance) อัตโนมัติจากโทเค็นคงเหลือ x 50
         self.balance = self.tokenbalance * 50
