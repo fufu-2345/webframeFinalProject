@@ -145,7 +145,7 @@ export default function Dashboard() {
             href="/author/subscription"
             className="bg-white text-blue-600 px-4 py-2 rounded-lg font-medium"
           >
-            ต่อสมาชิก
+            ต่อสมาชิก & เติมโทเคน
           </Link>
         </div>
       </div>

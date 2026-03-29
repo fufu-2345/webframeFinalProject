@@ -2,8 +2,14 @@
 
 import { useEffect, useState } from "react"
 
+type TopBook = {
+  title: string
+  author: string | null
+  total_sales: number
+}
+
 export default function TopBooksPage() {
-  const [data, setData] = useState<any[]>([])
+  const [data, setData] = useState<TopBook[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -19,7 +25,7 @@ export default function TopBooksPage() {
           throw new Error("Failed to fetch data")
         }
 
-        const result = await res.json()
+        const result = (await res.json()) as TopBook[]
         setData(result)
       } catch (err) {
         console.error(err)
@@ -52,7 +58,7 @@ export default function TopBooksPage() {
         </p>
 
         <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {data.map((item: any, index: number) => (
+          {data.map((item, index) => (
             <div
               key={index}
               className="bg-white rounded-2xl shadow hover:shadow-xl transition p-5 flex flex-col justify-between"

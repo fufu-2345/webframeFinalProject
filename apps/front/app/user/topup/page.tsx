@@ -108,31 +108,31 @@ export default function TopupPage() {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-slate-100 px-6 py-16 text-slate-700">Loading...</div>;
+    return <div className="min-h-screen bg-gray-100 px-6 py-16 text-gray-700">Loading...</div>;
   }
 
   if (!isLoggedIn) {
-    return <div className="min-h-screen bg-slate-100 px-6 py-16 text-slate-700">Redirecting...</div>;
+    return <div className="min-h-screen bg-gray-100 px-6 py-16 text-gray-700">Redirecting...</div>;
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900">
+    <main className="min-h-screen bg-gray-100 px-4 py-8 text-gray-900">
       <div className="mx-auto max-w-3xl space-y-6">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
+        <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="space-y-3">
             <div className="text-xl font-semibold">{profile?.fullname}</div>
-            <div className="text-sm text-slate-600">Role: {formatRole(profile?.role)}</div>
+            <div className="text-sm text-gray-600">Role: {formatRole(profile?.role)}</div>
             <div className="text-lg font-medium">Token: {profile?.token_balance ?? 0}</div>
-            <div className="text-sm text-slate-600">หมดอายุ: {formatDateTime(profile?.author_expire_at)}</div>
+            <div className="text-sm text-gray-600">หมดอายุ: {formatDateTime(profile?.author_expire_at)}</div>
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
+        <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="space-y-4">
             <select
               value={mode}
               onChange={(event) => setMode(event.target.value as Mode)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
             >
               <option value="topup">เติมโทเคน</option>
               <option value="subscription">สมัครสมาชิก</option>
@@ -147,12 +147,12 @@ export default function TopupPage() {
                   value={tokenAmount}
                   onChange={(event) => setTokenAmount(event.target.value)}
                   placeholder="จำนวนโทเคน"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
                 />
                 <input
                   value={tokenPrice > 0 ? `${tokenPrice} บาท` : "-"}
                   readOnly
-                  className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm"
                 />
                 <button
                   onClick={handleTopup}
@@ -168,7 +168,7 @@ export default function TopupPage() {
                 <input
                   value="1999 บาท"
                   readOnly
-                  className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm"
                 />
                 <button
                   onClick={handleSubscription}
@@ -182,7 +182,7 @@ export default function TopupPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
+        <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-4 text-base font-medium">สถานะ</div>
           {error && <div className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>}
           <PaymentStatusList items={payments.slice(0, 6)} emptyText="ไม่มีรายการ" />

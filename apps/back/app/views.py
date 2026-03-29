@@ -14,9 +14,6 @@ from django.db.models import Count, ExpressionWrapper, F, IntegerField
 from .createTemp import CreateTempSerializer, EbookSerializer
 from .models import TransAccount, SystemUser, Payment, TopupPlan, eBook
 
-# =========================
-# BASIC (ของเดิมคุณ)
-# =========================
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def create_mock_user(request):
@@ -139,9 +136,6 @@ def login_user(request):
         return Response({'error': 'User not found'}, status=404)
 
 
-# =========================
-# 📊 REPORT (แก้ bug)
-# =========================
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def topSellingBook(request):
@@ -217,10 +211,6 @@ def transactionList(request):
 
     return Response(list(data), status=200)
 
-
-# =========================
-# 💰 USER: TOPUP
-# =========================
 @api_view(['POST'])
 def request_topup(request):
     userid = request.COOKIES.get('userid')
@@ -254,10 +244,6 @@ def request_topup(request):
 
     return Response({'message': 'รอ admin ตรวจสอบ'}, status=200)
 
-
-# =========================
-# ✍️ AUTHOR: SUBSCRIPTION
-# =========================
 @api_view(['POST'])
 def request_subscription(request):
     userid = request.COOKIES.get('userid')
@@ -283,10 +269,6 @@ def author_status(request):
         'expire_at': user.author_expire_at
     })
 
-
-# =========================
-# 👑 ADMIN
-# =========================
 @api_view(['GET'])
 def list_pending_payments(request):
     role = request.COOKIES.get('role')

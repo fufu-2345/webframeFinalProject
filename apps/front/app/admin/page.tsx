@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface Payment {
   id: number;
@@ -36,7 +36,7 @@ export default function AdminPaymentPage() {
     return "";
   };
 
-  const fireAlert = (config: Omit<AlertConfig, "show">) => {
+  const fireAlert = useCallback((config: Omit<AlertConfig, "show">) => {
     return new Promise<void>((resolve) => {
       setAlertConfig({ ...config, show: true, resolve });
       if (config.timer) {
@@ -46,14 +46,14 @@ export default function AdminPaymentPage() {
         }, config.timer);
       }
     });
-  };
+  }, []);
 
   const closeAlert = () => {
     if (alertConfig.resolve) alertConfig.resolve();
     setAlertConfig({ show: false });
   };
 
-  const fetchPendingPayments = async () => {
+  const fetchPendingPayments = useCallback(async () => {
     try {
       const res = await fetch("http://localhost:8000/app/admin/payments/pending/", {
         credentials: "include",
@@ -86,7 +86,7 @@ export default function AdminPaymentPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fireAlert]);
 
   useEffect(() => {
     const userid = getCookie("userid");
@@ -97,7 +97,7 @@ export default function AdminPaymentPage() {
     }
 
     fetchPendingPayments();
-  }, [router]);
+  }, [fetchPendingPayments, router]);
 
   const getCsrfToken = async (): Promise<string> => {
     const res = await fetch("http://localhost:8000/app/csrf/", {
