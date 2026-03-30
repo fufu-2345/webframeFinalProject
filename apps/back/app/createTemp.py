@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import SystemUser, eBook
+from .models import SystemUser, eBook , Payment , TransAccount
 
 class CreateTempSerializer(serializers.ModelSerializer):
     class Meta:
@@ -22,4 +22,18 @@ class EbookSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = eBook
+        fields = '__all__'
+
+class PaymentSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username')
+
+    class Meta:
+        model = Payment
+        fields = '__all__'
+
+class TransAccountSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='owner.username')
+
+    class Meta:
+        model = TransAccount
         fields = '__all__'

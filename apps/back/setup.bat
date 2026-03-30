@@ -2,4 +2,4 @@ python -m venv .venv
 
 call .venv\Scripts\activate
 
-pip install -r requirement.txt
+pip install -r requirements.txt

@@ -62,7 +62,8 @@ export default function LoginPage() {
             const res = await fetch("http://localhost:8000/app/login/", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userid: selectedUserId })
+                body: JSON.stringify({ userid: selectedUserId }),
+                credentials: "include"
             });
 
             if (res.ok) {

@@ -186,7 +186,8 @@ class TransAccount(models.Model):
     tokenbalance = models.IntegerField(default=0)
     balance = models.IntegerField(default=0)
     ebook = models.ForeignKey(eBook, on_delete=models.SET_NULL, null=True, blank=True)
-
+    transdate = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(default=timezone.now)
     def save(self, *args, **kwargs):
         # คำนวณยอดเงินบาท (Balance) อัตโนมัติจากโทเค็นคงเหลือ x 50
         self.balance = self.tokenbalance * 50
