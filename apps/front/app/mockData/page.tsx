@@ -8,6 +8,16 @@ interface User {
     role: string;
 }
 
+type AlertConfig = {
+    show: boolean;
+    icon?: "warning" | "success" | "error";
+    title?: string;
+    text?: string;
+    showConfirmButton?: boolean;
+    timer?: number;
+    resolve?: () => void;
+};
+
 export default function CreateUser() {
     const [userName, setUserName] = useState("");
     const [userRole, setUserRole] = useState("user");
@@ -20,9 +30,9 @@ export default function CreateUser() {
 
     const [authors, setAuthors] = useState<User[]>([]);
 
-    const [alertConfig, setAlertConfig] = useState<any>({ show: false });
+    const [alertConfig, setAlertConfig] = useState<AlertConfig>({ show: false });
 
-    const fireAlert = (config: any) => {
+    const fireAlert = (config: Omit<AlertConfig, "show" | "resolve">) => {
         return new Promise<void>((resolve) => {
             setAlertConfig({ ...config, show: true, resolve });
             if (config.timer) {

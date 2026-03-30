@@ -1,9 +1,9 @@
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, parser_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.core.files.storage import default_storage
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
@@ -27,6 +27,18 @@ def get_request_user(request):
         return get_object_or_404(SystemUser, userid=userid)
 
     return None
+
+
+def require_roles(request, allowed_roles):
+    user = get_request_user(request)
+
+    if not user:
+        return None, Response({'error': 'Please login first'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    if user.role not in allowed_roles:
+        return None, Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    return user, None
 
 
 @api_view(['POST'])
@@ -86,6 +98,19 @@ def current_user_profile(request):
 
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
+def get_user_balance(request, userid):
+    user = get_object_or_404(SystemUser, userid=userid)
+
+    return Response({
+        'userid': user.userid,
+        'fullname': user.fullname,
+        'role': user.role,
+        'token_balance': user.token_balance,
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
 def my_payment_requests(request):
     userid = request.COOKIES.get('userid')
     user = get_object_or_404(SystemUser, userid=userid)
@@ -118,9 +143,9 @@ def login_user(request):
 
         login(request, user)
 
-        if user.role == 'author' and not user.is_author_active():
-            user.role = 'user'
-            user.save()
+        if user.is_staff != (user.role == 'admin'):
+            user.is_staff = user.role == 'admin'
+            user.save(update_fields=['is_staff'])
 
         response = Response({
             'message': 'Login success',
@@ -135,6 +160,19 @@ def login_user(request):
         return response
     except SystemUser.DoesNotExist:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def logout_user(request):
+    logout(request)
+
+    response = Response({'message': 'Logout success'}, status=status.HTTP_200_OK)
+    response.delete_cookie('userid')
+    response.delete_cookie('role')
+    response.delete_cookie('sessionid')
+    response.delete_cookie('csrftoken')
+    return response
 
 
 @api_view(['GET'])
@@ -363,15 +401,23 @@ def author_status(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([AllowAny])
 def list_pending_payments(request):
+    _, error_response = require_roles(request, ['admin'])
+    if error_response:
+        return error_response
+
     payments = Payment.objects.filter(status='wait').values()
     return Response(list(payments), status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([AllowAny])
 def verify_payment(request):
+    _, error_response = require_roles(request, ['admin'])
+    if error_response:
+        return error_response
+
     payment_id = request.data.get('payment_id')
     action = request.data.get('action')
 
@@ -409,15 +455,23 @@ def verify_payment(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([AllowAny])
 def admin_topup_list(request):
+    _, error_response = require_roles(request, ['admin'])
+    if error_response:
+        return error_response
+
     data = Payment.objects.filter(paymenttype='topup').values()
     return Response(list(data), status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([AllowAny])
 def admin_subscription_list(request):
+    _, error_response = require_roles(request, ['admin'])
+    if error_response:
+        return error_response
+
     data = Payment.objects.filter(paymenttype='subscription').values()
     return Response(list(data), status=status.HTTP_200_OK)
 
@@ -470,6 +524,10 @@ def payment_history(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def search_payment(request):
+    _, error_response = require_roles(request, ['admin'])
+    if error_response:
+        return error_response
+
     username = request.GET.get('username')
     date = request.GET.get('date')
 
@@ -488,6 +546,10 @@ def search_payment(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def search_transaccount(request):
+    _, error_response = require_roles(request, ['admin'])
+    if error_response:
+        return error_response
+
     username = request.GET.get('username')
     date = request.GET.get('date')
 

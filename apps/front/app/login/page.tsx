@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { API_URL, ensureCsrfToken } from "../lib/account";
 
 interface User {
     userid: number;
@@ -8,13 +9,23 @@ interface User {
     role: string;
 }
 
+type AlertConfig = {
+    show: boolean;
+    icon?: "warning" | "success" | "error";
+    title?: string;
+    text?: string;
+    showConfirmButton?: boolean;
+    timer?: number;
+    resolve?: () => void;
+};
+
 export default function LoginPage() {
     const [users, setUsers] = useState<User[]>([]);
     const [selectedUserId, setSelectedUserId] = useState<string>("");
 
-    const [alertConfig, setAlertConfig] = useState<any>({ show: false });
+    const [alertConfig, setAlertConfig] = useState<AlertConfig>({ show: false });
 
-    const fireAlert = (config: any) => {
+    const fireAlert = (config: Omit<AlertConfig, "show" | "resolve">) => {
         return new Promise<void>((resolve) => {
             setAlertConfig({ ...config, show: true, resolve });
             if (config.timer) {
@@ -59,9 +70,13 @@ export default function LoginPage() {
         }
 
         try {
-            const res = await fetch("http://localhost:8000/app/login/", {
+            const csrfToken = await ensureCsrfToken();
+            const res = await fetch(`${API_URL}/login/`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(csrfToken ? { "X-CSRFToken": csrfToken } : {}),
+                },
                 body: JSON.stringify({ userid: selectedUserId }),
                 credentials: "include"
             });

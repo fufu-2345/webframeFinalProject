@@ -40,7 +40,7 @@ export function getCookie(name: string) {
   return parts.length === 2 ? parts.pop()?.split(";").shift() ?? "" : "";
 }
 
-async function ensureCsrfToken() {
+export async function ensureCsrfToken() {
   let token = getCookie("csrftoken");
 
   if (token) {
@@ -104,11 +104,11 @@ export function formatRole(role?: string) {
 }
 
 export function paymentTypeLabel(type: string) {
-  return type === "subscription" ? "สมัครสมาชิก Author" : "เติมโทเคน";
+  return type === "subscription" ? "Author Membership" : "Top Up";
 }
 
 export function paymentStatusLabel(status: string) {
-  if (status === "received") return "อนุมัติแล้ว";
-  if (status === "rejected") return "ไม่อนุมัติ";
-  return "รอ admin";
+  if (status === "received") return "Approved";
+  if (status === "rejected") return "Rejected";
+  return "Waiting for admin";
 }

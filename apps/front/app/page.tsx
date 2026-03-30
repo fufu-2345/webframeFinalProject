@@ -1,9 +1,5 @@
+import { redirect } from "next/navigation";
+
 export default function Page() {
-  return (
-    <main>
-      <div>
-        main
-      </div>
-    </main>
-  );
+  redirect("/menu");
 }

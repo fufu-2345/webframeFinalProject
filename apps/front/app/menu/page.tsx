@@ -1,293 +1,318 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { API_URL, fetchJson, getCookie, UserProfile } from "../lib/account";
+import { get } from "http";
 
 interface Ebook {
-    ebookid: number;
-    title: string;
-    cover: string;
-    ebooktoken: number;
-    author: number;
+  ebookid: number;
+  title: string;
+  cover: string;
+  ebooktoken: number;
+  author: number;
 }
 
-interface AlertConfig {
-    show: boolean;
-    icon?: 'warning' | 'success' | 'error';
-    title?: string;
-    text?: string;
-    showCancelButton?: boolean;
-    showConfirmButton?: boolean;
-    confirmButtonText?: string;
-    cancelButtonText?: string;
-    timer?: number;
-    resolve?: (value: boolean) => void;
+type Notice = {
+  type: "success" | "error";
+  text: string;
+};
+
+const FALLBACK_COVER_URL = "https://via.placeholder.com/300x400?text=No+Cover";
+
+async function loadCurrentProfile() {
+  if (!getCookie("userid")) {
+    return null;
+  }
+
+  try {
+    return await fetchJson<UserProfile>(`${API_URL}/users/me/`);
+  } catch {
+    return null;
+  }
 }
 
-export default function EbookList() {
-    const [ebooks, setEbooks] = useState<Ebook[]>([]);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [userTokens, setUserTokens] = useState<number>(0);
-    const [userId, setUserId] = useState<string | null>(null);
-    const TOKEN_RATE = 50;
+export default function MenuPage() {
+  const router = useRouter();
+  const [ebooks, setEbooks] = useState<Ebook[]>([]);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [buyingId, setBuyingId] = useState<number | null>(null);
+  //const isLoggedIn = Boolean(getCookie("userid"));
+  const [isLoggedIn, setIsLoggedIn] = useState<Boolean>(false);
+  const [role, setRole] = useState<string>("");
 
-    const [alertConfig, setAlertConfig] = useState<AlertConfig>({ show: false });
-
-    const fireAlert = (config: Omit<AlertConfig, 'show' | 'resolve'>) => {
-        return new Promise<boolean>((resolve) => {
-            setAlertConfig({ ...config, show: true, resolve });
-            if (config.timer) {
-                setTimeout(() => {
-                    setAlertConfig({ show: false });
-                    resolve(true);
-                }, config.timer);
-            }
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const ebookData = await fetchJson<Ebook[]>(`${API_URL}/ebooks/list/`);
+        setEbooks(ebookData);
+      } catch (loadError) {
+        setNotice({
+          type: "error",
+          text:
+            loadError instanceof Error
+              ? loadError.message
+              : "Unable to load ebooks",
         });
+      }
+      const currentProfile = await loadCurrentProfile();
+      if (currentProfile) {
+        setProfile(currentProfile);
+        setRole(currentProfile.role);
+        setIsLoggedIn(getCookie("userid") ? true : false);
+        document.cookie = `role=${currentProfile.role}; path=/; max-age=604800`;
+      }
     };
 
-    const handleAlertClose = (isConfirmed: boolean) => {
-        if (alertConfig.resolve) alertConfig.resolve(isConfirmed);
-        setAlertConfig({ show: false });
-    };
+    void loadData();
+  }, []);
 
-    const fetchEbooks = async () => {
-        try {
-            const res = await fetch("http://localhost:8000/app/ebooks/list/");
-            if (res.ok) {
-                const data = await res.json();
-                setEbooks(data);
-            }
-        } catch (error) {
-            console.error(error);
-        }
-    };
+  const handleBuyClick = async (ebook: Ebook) => {
+    if (!isLoggedIn) {
+      router.push("/login");
+      return;
+    }
 
-    const fetchUserBalance = async (uid: string) => {
-        try {
-            const res = await fetch(`http://localhost:8000/app/users/${uid}/balance/`);
-            if (res.ok) {
-                const data = await res.json();
-                setUserTokens(data.token_balance);
-            }
-        } catch (error) {
-            console.error(error);
-        }
-    };
+    const currentProfile = profile || (await loadCurrentProfile());
 
-    const getCookie = (name: string) => {
-        if (typeof document === 'undefined') return null;
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
-        return null;
-    };
+    if (!currentProfile) {
+      setNotice({ type: "error", text: "Please login first" });
+      return;
+    }
 
-    useEffect(() => {
-        fetchEbooks();
-        const currentUserId = getCookie('userid') || localStorage.getItem('userid');
-        if (currentUserId) {
-            setIsLoggedIn(true);
-            setUserId(currentUserId);
-            fetchUserBalance(currentUserId);
-        } else {
-            setIsLoggedIn(false);
-        }
-    }, []);
+    if (currentProfile.token_balance < ebook.ebooktoken) {
+      setNotice({
+        type: "error",
+        text: `You need ${ebook.ebooktoken} tokens to buy this book, but you only have ${currentProfile.token_balance}.`,
+      });
+      return;
+    }
 
-    const handleBuyClick = async (ebook: Ebook) => {
-        if (!isLoggedIn || !userId) {
-            await fireAlert({
-                icon: "error",
-                title: "เข้าสู่ระบบก่อน",
-                text: "กรุณาล็อกอินเข้าระบบก่อนทำรายการซื้อหนังสือ",
-                showCancelButton: false,
-                confirmButtonText: "ตกลง"
-            });
-            return;
-        }
-
-        if (userTokens < ebook.ebooktoken) {
-            await fireAlert({
-                icon: "error",
-                title: "ยอดโทเคนไม่เพียงพอ",
-                text: `หนังสือเล่มนี้ราคา ${ebook.ebooktoken} โทเคน แต่คุณมีเพียง ${userTokens} โทเคน (กรุณาเติมโทเคน)`,
-                showCancelButton: false,
-                confirmButtonText: "ตกลง"
-            });
-            return;
-        }
-
-        const isConfirmed = await fireAlert({
-            icon: "warning",
-            title: "ยืนยันการซื้อ",
-            text: `คุณต้องการซื้อหนังสือ "${ebook.title}" ในราคา ${ebook.ebooktoken} โทเคน ใช่หรือไม่?`,
-            showCancelButton: true,
-            confirmButtonText: "ใช่, ซื้อเลย",
-            cancelButtonText: "ยกเลิก"
-        });
-
-        if (isConfirmed) {
-            try {
-                const csrfToken = getCookie('csrftoken') || '';
-
-                const res = await fetch("http://localhost:8000/app/payment/purchase/", {
-                    method: "POST",
-                    credentials: "include",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": csrfToken
-                    },
-                    body: JSON.stringify({
-                        ebook_id: ebook.ebookid
-                    })
-                });
-
-                if (res.ok) {
-                    setUserTokens(userTokens - ebook.ebooktoken);
-
-                    await fireAlert({
-                        icon: "success",
-                        title: "สั่งซื้อสำเร็จ!",
-                        text: `คุณได้ซื้อหนังสือ "${ebook.title}" เรียบร้อยแล้ว`,
-                        showCancelButton: false,
-                        confirmButtonText: "ตกลง",
-                        timer: 3000
-                    });
-                } else {
-                    const errorData = await res.json();
-                    await fireAlert({
-                        icon: "error",
-                        title: "ทำรายการไม่สำเร็จ",
-                        text: errorData.error || "เกิดข้อผิดพลาดในการสั่งซื้อ",
-                        showCancelButton: false,
-                        confirmButtonText: "ตกลง"
-                    });
-                }
-            } catch (error) {
-                console.error(error);
-                await fireAlert({
-                    icon: "error",
-                    title: "เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว",
-                    text: "ไม่สามารถดำเนินการได้ในขณะนี้",
-                    showCancelButton: false,
-                    confirmButtonText: "ตกลง"
-                });
-            }
-        }
-    };
-
-    return (
-        <div className="min-h-screen bg-gray-100 p-8 relative">
-            {alertConfig.show && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-opacity">
-                    <div className="bg-white rounded-lg shadow-2xl p-8 max-w-sm w-full text-center transform transition-all">
-                        {alertConfig.icon === 'warning' && (
-                            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-yellow-100 mb-6">
-                                <svg className="h-10 w-10 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                </svg>
-                            </div>
-                        )}
-                        {alertConfig.icon === 'success' && (
-                            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
-                                <svg className="h-10 w-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                </svg>
-                            </div>
-                        )}
-                        {alertConfig.icon === 'error' && (
-                            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-6">
-                                <svg className="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </div>
-                        )}
-
-                        <h3 className="text-2xl font-semibold text-gray-800 mb-2">{alertConfig.title}</h3>
-                        {alertConfig.text && <p className="text-gray-500 mb-6 text-sm break-words">{alertConfig.text}</p>}
-
-                        <div className="flex justify-center space-x-3 mt-6">
-                            {alertConfig.showCancelButton && (
-                                <button
-                                    onClick={() => handleAlertClose(false)}
-                                    className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm w-full"
-                                >
-                                    {alertConfig.cancelButtonText || "Cancel"}
-                                </button>
-                            )}
-                            {alertConfig.showConfirmButton !== false && (
-                                <button
-                                    onClick={() => handleAlertClose(true)}
-                                    className={`inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 sm:text-sm w-full
-                                        ${alertConfig.icon === 'warning' ? 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500'
-                                            : alertConfig.icon === 'error' ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-                                                : 'bg-green-600 hover:bg-green-700 focus:ring-green-500'}`}
-                                >
-                                    {alertConfig.confirmButtonText || "OK"}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <div className="max-w-7xl mx-auto mb-8 flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-800">คลังหนังสือ eBook</h1>
-                    <p className="text-sm text-gray-500 mt-1">เลือกซื้อหนังสือด้วยโทเคนของคุณ</p>
-                </div>
-                {isLoggedIn && (
-                    <div className="text-right bg-indigo-50 px-4 py-2 rounded-lg border border-indigo-100">
-                        <p className="text-xs text-indigo-600 font-semibold uppercase tracking-wider mb-1">ยอดคงเหลือของคุณ</p>
-                        <div className="flex items-baseline space-x-2">
-                            <span className="text-2xl font-black text-indigo-700">{userTokens}</span>
-                            <span className="text-sm font-bold text-indigo-500">Tokens</span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">({(userTokens * TOKEN_RATE).toLocaleString()} บาท)</p>
-                    </div>
-                )}
-            </div>
-
-            {ebooks.length === 0 ? (
-                <div className="text-center text-gray-500 py-10">ไม่พบหนังสือในระบบ หรือกำลังโหลดข้อมูล...</div>
-            ) : (
-                <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 z-10 relative">
-                    {ebooks.map((ebook) => (
-                        <div
-                            key={ebook.ebookid}
-                            onClick={() => handleBuyClick(ebook)}
-                            className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col cursor-pointer"
-                        >
-                            <div className="h-64 bg-gray-200 relative overflow-hidden group">
-                                {ebook.cover ? (
-                                    <img
-                                        src={`http://localhost:8000${ebook.cover}`}
-                                        alt={ebook.title}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/300x400?text=No+Cover'; }}
-                                    />
-                                ) : (
-                                    <div className="flex items-center justify-center h-full text-gray-400">
-                                        ไม่มีรูปปก
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="p-5 flex-grow flex flex-col justify-between">
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900 mb-1 line-clamp-2">{ebook.title}</h3>
-                                    <p className="text-sm text-gray-500 mb-3">รหัสหนังสือ: #{ebook.ebookid}</p>
-                                </div>
-
-                                <div className="mt-4 flex items-center justify-between">
-                                    <span className="text-xl font-bold text-indigo-600">
-                                        {ebook.ebooktoken} <span className="text-sm font-medium text-indigo-400">Tokens</span>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
+    const isConfirmed = window.confirm(
+      `Buy "${ebook.title}" for ${ebook.ebooktoken} tokens?`,
     );
+
+    if (!isConfirmed) {
+      return;
+    }
+
+    setBuyingId(ebook.ebookid);
+    setNotice(null);
+
+    try {
+      await fetchJson<{ message: string }>(`${API_URL}/payment/purchase/`, {
+        method: "POST",
+        body: JSON.stringify({ ebook_id: ebook.ebookid }),
+      });
+
+      const freshProfile = await loadCurrentProfile();
+      if (freshProfile) {
+        setProfile(freshProfile);
+      }
+
+      setNotice({
+        type: "success",
+        text: `You bought "${ebook.title}" successfully.`,
+      });
+    } catch (buyError) {
+      setNotice({
+        type: "error",
+        text:
+          buyError instanceof Error ? buyError.message : "Purchase failed",
+      });
+    } finally {
+      setBuyingId(null);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetchJson<{ message: string }>(`${API_URL}/logout/`, {
+        method: "POST",
+      });
+    } catch {
+      const expiredCookie = "expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+      document.cookie = `userid=; ${expiredCookie}`;
+      document.cookie = `role=; ${expiredCookie}`;
+      document.cookie = `sessionid=; ${expiredCookie}`;
+      document.cookie = `csrftoken=; ${expiredCookie}`;
+    } finally {
+      setProfile(null);
+      setNotice({
+        type: "success",
+        text: "You have been logged out.",
+      });
+    }
+  };
+
+  const quickLinks = [
+    {
+      href: "/topbook",
+      title: "Top Books",
+      visible: true,
+    },
+    {
+      href: "/history",
+      title: "History",
+      visible: isLoggedIn && role !== "admin",
+    },
+    {
+      href: "/user/topup",
+      title: "Top Up & Subscription",
+      visible: isLoggedIn && role === "user",
+    },
+    {
+      href: "/author",
+      title: "Author Dashboard",
+      visible: isLoggedIn && role === "author",
+    },
+    {
+      href: "/admin",
+      title: "Admin Dashboard",
+      visible: isLoggedIn && role === "admin",
+    },
+    {
+      href: "/login",
+      title: "Login",
+      visible: !isLoggedIn,
+    },
+  ];
+
+  return (
+    <main className="min-h-screen bg-slate-100 px-4 py-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <section className="rounded-3xl bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <h1 className="text-3xl font-semibold text-slate-900">Main Menu</h1>
+
+            <div className="flex flex-wrap items-center gap-6 text-sm text-slate-700">
+              <span>
+                <span className="text-slate-500">Name:</span>{" "}
+                <span className="font-semibold">{profile?.fullname || "Guest"}</span>
+              </span>
+
+              <span>
+                <span className="text-slate-500">Role:</span>{" "}
+                {role ? (
+                  <span className="font-semibold">{role}</span>
+                ) : (
+                  <span className="font-semibold">guest</span>
+                )}
+              </span>
+
+              <span>
+                <span className="text-slate-500">Tokens:</span>{" "}
+                <span className="font-semibold text-indigo-600">
+                  {profile?.token_balance ?? 0}
+                </span>
+              </span>
+
+              {isLoggedIn && (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="rounded-lg border border-rose-200 px-4 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+                >
+                  Logout
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="flex flex-wrap justify-center gap-3">
+          {quickLinks
+            .filter((item) => item.visible)
+            .map((item) => (
+              <Link key={item.href} href={item.href}>
+                <button className="rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-100">
+                  {item.title}
+                </button>
+              </Link>
+            ))}
+        </section>
+
+        {notice && (
+          <section
+            className={`rounded-2xl px-5 py-4 text-sm shadow-sm ${
+              notice.type === "success"
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-rose-50 text-rose-700"
+            }`}
+          >
+            {notice.text}
+          </section>
+        )}
+
+        <section>
+          {ebooks.length === 0 ? (
+            <div className="py-10 text-center text-gray-500">
+              No ebooks found in the system.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {ebooks.map((ebook) => (
+                <button
+                  key={ebook.ebookid}
+                  type="button"
+                  onClick={() => void handleBuyClick(ebook)}
+                  disabled={buyingId === ebook.ebookid}
+                  className="flex cursor-pointer flex-col overflow-hidden rounded-xl bg-white text-left shadow-md transition-shadow duration-300 hover:shadow-xl disabled:cursor-wait"
+                >
+                  <div className="group relative h-64 overflow-hidden bg-gray-200">
+                    {ebook.cover ? (
+                      <Image
+                        src={`http://localhost:8000${ebook.cover}`}
+                        alt={ebook.title}
+                        fill
+                        unoptimized
+                        sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        onError={(event) => {
+                          if (event.currentTarget.src !== FALLBACK_COVER_URL) {
+                            event.currentTarget.src = FALLBACK_COVER_URL;
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-gray-400">
+                        No cover
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-grow flex-col justify-between p-5">
+                    <div>
+                      <h3 className="mb-1 line-clamp-2 text-lg font-bold text-gray-900">
+                        {ebook.title}
+                      </h3>
+                      <p className="mb-3 text-sm text-gray-500">
+                        Book ID: #{ebook.ebookid}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className="text-xl font-bold text-indigo-600">
+                        {ebook.ebooktoken}{" "}
+                        <span className="text-sm text-indigo-400">Tokens</span>
+                      </span>
+                    </div>
+
+                    <p className="mt-3 text-sm text-gray-500">
+                      {buyingId === ebook.ebookid
+                        ? "Processing purchase..."
+                        : "Click to buy"}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
+  );
 }

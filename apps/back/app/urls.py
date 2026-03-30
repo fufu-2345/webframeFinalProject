@@ -9,6 +9,7 @@ urlpatterns = [
     path('users/payments/', views.my_payment_requests, name='my_payment_requests'),
     path('users/<int:userid>/balance/', views.get_user_balance, name='get_user_balance'),
     path('login/', views.login_user, name='login_user'),
+    path('logout/', views.logout_user, name='logout_user'),
 
     path('ebooks/create/', views.create_mock_ebook, name='create_mock_ebook'),
     path('ebooks/list/', views.list_ebooks, name='list_ebooks'),
@@ -21,7 +22,6 @@ urlpatterns = [
     path('report/transactions/', transactionList, name='author_transactions'),
 
     path('user/topup/request/', views.request_topup, name='request_topup'),
-    path('payment/topup/request/', views.request_topup, name='payment_request_topup'),
     path('payment/subscription-info/', views.get_subscription_info, name='payment_get_sub_info'),
     path('payment/subscribe/', views.request_subscription, name='payment_request_sub'),
     path('author/subscription/request/', views.request_subscription, name='request_subscription'),

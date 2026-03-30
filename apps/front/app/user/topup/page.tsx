@@ -12,6 +12,7 @@ import {
   PaymentItem,
   UserProfile,
 } from "../../lib/account";
+import Link from "next/link";
 
 type Mode = "topup" | "subscription";
 
@@ -124,7 +125,12 @@ export default function TopupPage() {
             <div className="text-sm text-gray-600">Role: {formatRole(profile?.role)}</div>
             <div className="text-lg font-medium">Token: {profile?.token_balance ?? 0}</div>
             <div className="text-sm text-gray-600">หมดอายุ: {formatDateTime(profile?.author_expire_at)}</div>
+            
           </div>
+           <Link href="/menu" className="mt-4 inline-flex rounded-lg bg-blue-600 px-4 py-2 text-white">
+            กลับไปหน้า menu
+          </Link>
+         
         </section>
 
         <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">

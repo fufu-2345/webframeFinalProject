@@ -140,6 +140,9 @@ export function AuthorBillingPage() {
             <div className="text-lg font-medium">Token: {profile.token_balance}</div>
             <div className="text-sm text-gray-600">หมดอายุ: {formatDateTime(profile.author_expire_at)}</div>
           </div>
+          <Link href="/author" className="mt-4 inline-flex rounded-lg bg-blue-600 px-4 py-2 text-white">
+            กลับไปหน้า author
+          </Link>
         </section>
 
         <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
